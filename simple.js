@@ -4,8 +4,8 @@ const date = () => new Date()
 console.log(date(), 'System opened!')
 
 setTimeout(async () => {
-    const information = await weather({ search: 'kartepe', count: '1' })
-    console.log(information.measurements[0])
+    const information = await weather({ search: 'kartepe', count: 1 })
+    console.log(information)
 }, 1000);
 
 /*\--------------------------------------------------------/*\

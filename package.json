@@ -1,6 +1,6 @@
 {
   "name": "weather-turkey",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "This module was made to list the weather forecasts of cities in Turkey.",
   "main": "weather.js",
   "scripts": {

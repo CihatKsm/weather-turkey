@@ -89,7 +89,7 @@ module.exports = async (data) => {
 
     return {
         city: textFix(output.il),
-        county: textFix(output.ilce),
+        county: output.ilce ? textFix(output?.ilce) : null,
         measurements: _measurements
     }
 };
