@@ -84,7 +84,7 @@ module.exports = async (data) => {
     }
 
     let _measurements = [currentControl, ...measurements(dataApi.data).filter(f => f.timestamp > Number(new Date()))]
-    if (!isNaN(Number(data.count))) _measurements = _measurements.slice(0, Number(data.count))
+    if (!isNaN(Number(data?.count))) _measurements = _measurements.slice(0, Number(data.count))
     else _measurements = []
 
     return {
