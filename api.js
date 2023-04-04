@@ -2,9 +2,9 @@ const { default: axios } = require("axios");
 
 module.exports = async (data) => {
     if (!data.search) return null;
-    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${data.search}`;
+    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${data?.search}`;
     const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null);
-    const output = searchApi.data[0];
+    const output = searchApi?.data[0];
 
     if (!output) return { city: null, county: null, measurements: [] }
 
