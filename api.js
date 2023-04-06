@@ -1,8 +1,10 @@
 const { default: axios } = require("axios");
+const places = require("./places");
 
 module.exports = async (data) => {
     if (!data.search) return null;
-    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${data?.search}`;
+    const search = places.find(f => f.plate == data.search)?.name || data.search;
+    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search}`;
     const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null);
     const output = searchApi?.data[0];
 
