@@ -44,7 +44,7 @@ module.exports = async (data) => {
                 unit: { long: 'Kilometer per hour', short: 'km/h' }
             },
             status: {
-                text: data.durum.split(' ').map(m => m[0].toUpperCase() + m.slice(1)).join(' '),
+                text: data.durum,
                 icon: `https://meteoroloji.boun.edu.tr/files/img/durumlar/${data.dosya_adi}.png`
             }
         }
@@ -80,8 +80,8 @@ module.exports = async (data) => {
             unit: { long: 'Kilometer per hour', short: 'km/h' }
         },
         status: {
-            text: bc.status.text,
-            icon: bc.status.icon
+            text: fc.status.text,
+            icon: fc.status.icon
         }
     }
 
@@ -137,9 +137,13 @@ function calcHumidex(temp, RH) {
     return { value: hx, text: comment }
 }
 
-function textFix(name) {
-    let _name = name.slice(1);
-    let latters = [[`İ`, `i`], [`I`, `ı`], [`Ö`, `ö`], [`Ü`, `ü`], [`Ğ`, `ğ`], [`Ç`, `ç`], [`Ş`, `ş`]];
-    for (let latter of latters) _name = _name.replaceAll(latter[0], latter[1]);
-    return name[0] + _name.toLowerCase();
+function textFix(_texts) {
+    const latters = [[`İ`, `i`], [`I`, `ı`], [`Ö`, `ö`], [`Ü`, `ü`], [`Ğ`, `ğ`], [`Ç`, `ç`], [`Ş`, `ş`]];
+    const texts = _texts.split(' ').map(m => {
+        if (latters.find(f => f[0] == m[0])) return m[0] + m.slice(1).toLowerCase();
+        let sliced = m.slice(1);
+        for (let latter of latters) sliced = sliced.replaceAll(latter[0], latter[1]);
+        return m[0].toUpperCase() + sliced.toLowerCase();
+    }).join(' ')
+    return texts;
 }
