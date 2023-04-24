@@ -1,6 +1,6 @@
 {
   "name": "weather-turkey",
-  "version": "0.0.7",
+  "version": "0.0.71",
   "description": "This module was made to list the weather forecasts of cities in Turkey.",
   "main": "weather.js",
   "scripts": {
@@ -21,10 +21,10 @@
     "hava"
   ],
   "dependencies": {
-    "axios": "^1.3.4",
+    "axios": "^1.3.6",
     "events": "^3.3.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.21"
+    "nodemon": "^2.0.22"
   }
 }

@@ -13,7 +13,12 @@ module.exports = async (data) => {
     const dataUrl = `https://meteoroloji.boun.edu.tr/sorgular/veri_talep.php`;
     const object = { sehir: JSON.stringify({ ilce: output?.ilce, il: output?.il }) }
     const headers = { headers: { 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryEH8ABrOo5YnHGWe2' } }
-    const dataApi = await axios.post(dataUrl, object, headers)
+    const dataApi = await axios.post(dataUrl, object, headers).catch((e) => null);
+    
+    if (!dataApi?.data) {
+        console.error('Some weather-turkey module api error! Please try again later.')
+        return null;
+    }
 
     const NumberFix = (n, c) => String(n).includes('.') ? Number(String(n).split('.')[0] + '.' + String(n).split('.')[1].slice(0, c)) : Number(n);
     const measurements = (datas) => datas.map(data => {
@@ -50,8 +55,8 @@ module.exports = async (data) => {
         }
     });
 
-    const bc = measurements(dataApi.data).filter(f => f.timestamp < Number(new Date())).reverse()[0];
-    const fc = measurements(dataApi.data).filter(f => f.timestamp > Number(new Date()))[0];
+    const bc = measurements(dataApi?.data).filter(f => f.timestamp < Number(new Date())).reverse()[0];
+    const fc = measurements(dataApi?.data).filter(f => f.timestamp > Number(new Date()))[0];
 
     const currentControl = {
         timestamp: Number(new Date()) + 3 * 60 * 60 * 1000,
