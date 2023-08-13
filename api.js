@@ -3,29 +3,67 @@ const places = require("./places");
 
 module.exports = async (data) => {
     if (!data.search) return null;
-    const search = places.find(f => f.plate == data.search)?.name || data.search;
-    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search}`;
-    const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null);
-    const output = searchApi?.data[0];
+    let search;
+    if (!isNaN(Number(data.search))) {
+        const placeName =  places.find(f => f.plate == Number(data.search))?.name;
+        if (!plateToPlace) return null;
+        search = placeName;
+    } else if (data.search.split(' ').length > 1) {
+        let datas = [];
+        for (let { city, counties } of places) {
+            for (let countie of counties) {
+                countie = countie.toLowerCase(), city = city.toLowerCase();
+                dataSearch = data.search.replaceAll(' ', '').toLowerCase();
+                if (countie+city == dataSearch || city+countie == dataSearch) 
+                    datas.push({ city, countie });
+            }
+        }
 
-    if (!output) return { city: null, county: null, measurements: [] }
+        if (datas.length == 0) return null;
+        if (datas.length > 0) search = datas[0];
+    } else {
+        search = data.search;
+    }
 
-    const dataUrl = `https://meteoroloji.boun.edu.tr/sorgular/veri_talep.php`;
-    const object = { sehir: JSON.stringify({ ilce: output?.ilce, il: output?.il }) }
+    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search?.countie ? search?.countie : search}`;
+
+    console.log(searchUrl)
+    const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null) || null;
+    
+    if (searchApi.status != 200) {
+        console.log(Error('Some weather-turkey module api error! Please try again later.'))
+        return null;
+    }
+
+    let output;
+    if (searchApi?.data?.length == 0) return null;
+    if (searchApi?.data?.length > 0 && search.length == 2) {
+        let datas = [];
+        for (let data of searchApi.data) if (textFix(data.il) == search[0] && textFix(data.ilce) == search[1]) datas.push(data);
+        if (datas.length == 0) return searchApi?.data[0];
+        if (datas.length > 0) output = datas[0];
+    } else {
+        output = searchApi?.data[0];
+    }
+
+    if (!output) return null;
+
+    const dataUrl = 'https://meteoroloji.boun.edu.tr/sorgular/veri_talep.php';
+    const object = { sehir: JSON.stringify({ ilce: searchApi?.data[0]?.ilce, il: searchApi?.data[0]?.il }) }
     const headers = { headers: { 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryEH8ABrOo5YnHGWe2' } }
     const dataApi = await axios.post(dataUrl, object, headers).catch((e) => null);
-    
+
     if (!dataApi?.data) {
-        console.error('Some weather-turkey module api error! Please try again later.')
+        console.log(Error('Some weather-turkey module api error! Please try again later.'))
         return null;
     }
 
     const NumberFix = (n, c) => String(n).includes('.') ? Number(String(n).split('.')[0] + '.' + String(n).split('.')[1].slice(0, c)) : Number(n);
     const measurements = (datas) => datas.map(data => {
         return {
-            timestamp: Number(new Date(data.tarih + ' ' + (data.saat.length == 1 ? '0' : '') + data.saat + ':00:00')),
+            timestamp: Number(new Date(data.tarih + ' ' + (String(data.saat).length == 1 ? '0' : '') + data.saat + ':00:00')),
             date: data.tarih.split('-').reverse().join('.'),
-            time: (data.saat.length == 1 ? '0' : '') + data.saat + ':00:00',
+            time: (String(data.saat).length == 1 ? '0' : '') + data.saat + ':00:00',
             temperature: {
                 value: NumberFix(data.sicaklik, 2),
                 max: NumberFix(data.max_sicaklik, 2),
@@ -92,16 +130,47 @@ module.exports = async (data) => {
 
     let _measurements = [currentControl, ...measurements(dataApi.data).filter(f => f.timestamp > Number(new Date()))]
     if (!isNaN(Number(data?.count))) _measurements = _measurements.slice(0, Number(data.count))
-    else _measurements = []
+
+    let _daily = {};
+    _measurements.forEach(e => {
+        if (!_daily[e.date]) _daily[e.date] = [];
+        _daily[e.date].push(e)
+    });
+
+    let daily = [];
+    for (let key of Object.keys(_daily)) {
+        let { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status } = _daily[key][0];
+        let data = { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status, measurements: _daily[key] };
+
+        data.temperature.value = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.value, 0) / _daily[key].length, 2);
+        data.temperature.max = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.max, 0) / _daily[key].length, 2);
+        data.temperature.min = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.min, 0) / _daily[key].length, 2);
+        data.humidity.value = NumberFix(_daily[key].reduce((a, b) => a + b.humidity.value, 0) / _daily[key].length, 2);
+        data.pressure.value = NumberFix(_daily[key].reduce((a, b) => a + b.pressure.value, 0) / _daily[key].length, 2);
+        data.rains.value = NumberFix(_daily[key].reduce((a, b) => a + b.rains.value, 0) / _daily[key].length, 2);
+        data.closeness.value = NumberFix(_daily[key].reduce((a, b) => a + b.closeness.value, 0) / _daily[key].length, 2);
+        data.wind.speed = NumberFix(_daily[key].reduce((a, b) => a + b.wind.speed, 0) / _daily[key].length, 2);
+        data.wind.direction.degree = NumberFix(_daily[key].reduce((a, b) => a + b.wind.direction.degree, 0) / _daily[key].length, 2);
+        data.temperature.felt = calcHumidex(data.temperature.value, data.humidity.value);
+        data.wind.direction.text = degToText(data.wind.direction.degree);
+
+        data.status.text = _daily[key][Math.floor(_daily[key].length / 2) - 1].status.text;
+        data.status.icon = _daily[key][Math.floor(_daily[key].length / 2) - 1].status.icon;
+
+        daily.push(data);
+    }
+
+    if (!isNaN(Number(data?.days))) daily = daily.slice(0, Number(data.days))
+    else if (isNaN(Number(data?.days))) daily = daily.slice(0, 1)
 
     return {
         city: textFix(output.il),
         county: output.ilce ? textFix(output?.ilce) : null,
-        measurements: _measurements
+        daily
     }
 };
 
-function degToText (derece) {
+function degToText(derece) {
     let yonler = ["Kuzey", "Kuzeydoğu", "Doğu", "Güneydoğu", "Güney", "Güneybatı", "Batı", "Kuzeybatı", "Kuzey"];
     let index = Math.floor((derece / 45) + 0.5) % 8;
     return yonler[index];

@@ -1,10 +1,12 @@
 {
   "name": "weather-turkey",
-  "version": "0.0.71",
+  "version": "0.0.75",
   "description": "This module was made to list the weather forecasts of cities in Turkey.",
   "main": "weather.js",
   "scripts": {
-    "dev": "nodemon simple.js"
+    "start": "node simple.js",
+    "dev": "nodemon simple.js",
+    "update": "ncu -u && npm install && npm audit fix"
   },
   "author": "CihatKsm <me@cihatksm.com>",
   "license": "MIT",
@@ -14,17 +16,20 @@
   },
   "keywords": [
     "cihatksm",
-    "weather",
-    "turkey", 
+    "turkey",
     "türkiye",
+    "weather",
+    "hava",
     "havadurumu",
-    "hava"
+    "hava durumu"
   ],
   "dependencies": {
-    "axios": "^1.3.6",
+    "axios": "^1.4.0",
+    "cheerio": "^1.0.0-rc.12",
     "events": "^3.3.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.0.1",
+    "npm-check-updates": "16.10.18"
   }
 }

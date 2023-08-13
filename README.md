@@ -11,82 +11,60 @@ const date = () => new Date()
 
 console.log(date(), 'System opened!')
 
-setTimeout(async () => {
-    const information = await weather({ search: 'Kartepe', count: 3 })
-    console.log(information)
-}, 2000);
+weather({ search: 'kartepe', days: 10 })
+    .then((data) => console.log(data))
 ```
 
 #### Örnek Çıktı:
-```json
+```js
 {
-    "city": "Kocaeli",
-    "county": "Kartepe",
-    "measurements": [
-        {
-            "timestamp": 1680628706368,
-            "date": "04.04.2023",
-            "time": "17:18:26",
-            "temperature": {
-                "value": 12.18,
-                "max": 16.05,
-                "min": 10.88,
-                "felt": { 
-                    "value": 13, 
-                    "text": "Rahat bir hava..." 
-                },
-                "unit": { 
-                    "long": "Celcius", 
-                    "short": "C" 
-                }
+  city: 'Kocaeli',
+  county: 'Kartepe',
+  daily: [
+    {
+        timestamp: 1691874000000,
+        date: '13.08.2023',
+        temperature: {
+            value: 22.35,
+            max: 24.03,
+            min: 21.32,
+            felt: {
+                value: 30,
+                text: 'Sıcak bir hava... Sıvı ihtiyacınızı karşılamayı unutmayın!'
             },
-            "humidity": { 
-                "value": 84.9, 
-                "unit": { 
-                    "long": "Percentile", 
-                    "short": "%"
-                } 
-            },
-            "pressure": { 
-                "value": 1003.48,
-                "unit": { 
-                    "long": "Hektopaskal", 
-                    "short": "hPa" 
-                } 
-            },
-            "rains": { 
-                "value": 1.21, 
-                "unit": { 
-                    "long": "Millimeter", 
-                    "short": "mm" 
-                } 
-            },
-            "closeness": { 
-                "value": 70.05, 
-                "unit": { 
-                    "long": "Percentile", 
-                    "short": "%" 
-                } 
-            },
-            "wind": {
-                "speed": 9.89,
-                "direction": { 
-                    "degree": 168.36, 
-                    "text": "Güney" 
-                },
-                "unit": { 
-                    "long": "Kilometer per hour", 
-                    "short": "km/h" 
-                }
-            },
-            "status": {
-                "text": "Sağanak Yağmur",
-                "icon": "https://meteoroloji.boun.edu.tr/files/img/durumlar/sagnak_yagmur.png"
-            }
+            unit: { long: 'Celcius', short: 'C' }
         },
-        {...},
-        {...}
-    ]
+        humidity: { value: 88.64, unit: { long: 'Percentile', short: '%' } },
+        pressure: { value: 1013.73, unit: { long: 'Hektopaskal', short: 'hPa' } },
+        rains: { value: 0.06, unit: { long: 'Millimeter', short: 'mm' } },
+        closeness: { value: 97.02, unit: { long: 'Percentile', short: '%' } },
+        wind: {
+            speed: 10.97,
+            direction: { degree: 57.95, text: 'Kuzeydoğu' },
+            unit: { long: 'Kilometer per hour', short: 'km/h' }
+        },
+        status: {
+            text: 'Kapalı',
+            icon: 'https://meteoroloji.boun.edu.tr/files/img/durumlar/kapali.png'
+        },
+        measurements: [
+            {
+                timestamp: 1691874000000,
+                date: '13.08.2023',
+                time: '00:00:00',
+                temperature: {...},
+                humidity: {...},
+                pressure: {...},
+                rains: {...},
+                closeness: {...},
+                wind: {...},
+                status: {...}
+            }
+            {... /* Toplam sekiz ölçüm verisi */},
+        ]
+    },
+    {... /* Toplam 10 günlük veri */}
+  ]
 }
 ```
 
