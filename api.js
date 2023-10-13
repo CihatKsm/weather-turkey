@@ -5,8 +5,8 @@ module.exports = async (data) => {
     if (!data.search) return null;
     let search;
     if (!isNaN(Number(data.search))) {
-        const placeName =  places.find(f => f.plate == Number(data.search))?.name;
-        if (!plateToPlace) return null;
+        const placeName =  places.find(f => Number(f.plate) == Number(data.search))?.city;
+        if (!placeName) return null;
         search = placeName;
     } else if (data.search.split(' ').length > 1) {
         let datas = [];
@@ -27,7 +27,6 @@ module.exports = async (data) => {
 
     const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search?.countie ? search?.countie : search}`;
 
-    console.log(searchUrl)
     const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null) || null;
     
     if (searchApi.status != 200) {
@@ -154,8 +153,10 @@ module.exports = async (data) => {
         data.temperature.felt = calcHumidex(data.temperature.value, data.humidity.value);
         data.wind.direction.text = degToText(data.wind.direction.degree);
 
-        data.status.text = _daily[key][Math.floor(_daily[key].length / 2) - 1].status.text;
-        data.status.icon = _daily[key][Math.floor(_daily[key].length / 2) - 1].status.icon;
+        const index = _daily[key].length / 2 > 1 ? Math.floor(_daily[key].length / 2) - 1 : 0;
+
+        data.status.text = _daily[key][index]?.status?.text;
+        data.status.icon = _daily[key][index]?.status?.icon;
 
         daily.push(data);
     }
