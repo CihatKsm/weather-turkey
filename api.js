@@ -29,7 +29,7 @@ module.exports = async (data) => {
 
     const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null) || null;
     
-    if (searchApi.status != 200) {
+    if (searchApi?.status != 200) {
         console.log(Error('Some weather-turkey module api error! Please try again later.'))
         return null;
     }
@@ -38,7 +38,7 @@ module.exports = async (data) => {
     if (searchApi?.data?.length == 0) return null;
     if (searchApi?.data?.length > 0 && search.length == 2) {
         let datas = [];
-        for (let data of searchApi.data) if (textFix(data.il) == search[0] && textFix(data.ilce) == search[1]) datas.push(data);
+        for (let data of searchApi?.data) if (textFix(data.il) == search[0] && textFix(data.ilce) == search[1]) datas.push(data);
         if (datas.length == 0) return searchApi?.data[0];
         if (datas.length > 0) output = datas[0];
     } else {
