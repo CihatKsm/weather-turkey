@@ -2,172 +2,180 @@ const { default: axios } = require("axios");
 const places = require("./places");
 
 module.exports = async (data) => {
-    if (!data.search) return null;
-    let search;
-    if (!isNaN(Number(data.search))) {
-        const placeName =  places.find(f => Number(f.plate) == Number(data.search))?.city;
-        if (!placeName) return null;
-        search = placeName;
-    } else if (data.search.split(' ').length > 1) {
-        let datas = [];
-        for (let { city, counties } of places) {
-            for (let countie of counties) {
-                countie = countie.toLowerCase(), city = city.toLowerCase();
-                dataSearch = data.search.replaceAll(' ', '').toLowerCase();
-                if (countie+city == dataSearch || city+countie == dataSearch) 
-                    datas.push({ city, countie });
+    try {
+        if (!data.search) return null;
+        let search;
+        if (!isNaN(Number(data.search))) {
+            const placeName = places.find(f => Number(f.plate) == Number(data.search))?.city;
+            if (!placeName) return null;
+            search = placeName;
+        } else if (data.search.split(' ').length > 1) {
+            let datas = [];
+            for (let { city, counties } of places) {
+                for (let countie of counties) {
+                    countie = countie.toLowerCase(), city = city.toLowerCase();
+                    dataSearch = data.search.replaceAll(' ', '').toLowerCase();
+                    if (countie + city == dataSearch || city + countie == dataSearch)
+                        datas.push({ city, countie });
+                }
             }
+
+            if (datas.length == 0) return null;
+            if (datas.length > 0) search = datas[0];
+        } else {
+            search = data.search;
         }
 
-        if (datas.length == 0) return null;
-        if (datas.length > 0) search = datas[0];
-    } else {
-        search = data.search;
-    }
+        const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search?.countie ? search?.countie : search}`;
 
-    const searchUrl = `https://meteoroloji.boun.edu.tr/sorgular/sehir_talep.php?merkez=${search?.countie ? search?.countie : search}`;
+        const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null) || null;
 
-    const searchApi = await axios({ method: 'post', url: searchUrl }).catch((e) => null) || null;
-    
-    if (searchApi?.status != 200) {
-        console.log(Error('Some weather-turkey module api error! Please try again later.'))
-        return null;
-    }
+        if (searchApi?.status != 200) {
+            console.log(Error('Some weather-turkey module api error! Please try again later.'))
+            return null;
+        }
 
-    let output;
-    if (searchApi?.data?.length == 0) return null;
-    if (searchApi?.data?.length > 0 && search.length == 2) {
-        let datas = [];
-        for (let data of searchApi?.data) if (textFix(data.il) == search[0] && textFix(data.ilce) == search[1]) datas.push(data);
-        if (datas.length == 0) return searchApi?.data[0];
-        if (datas.length > 0) output = datas[0];
-    } else {
-        output = searchApi?.data[0];
-    }
+        let output;
+        if (searchApi?.data?.length == 0) return null;
+        if (searchApi?.data?.length > 0 && search.length == 2) {
+            let datas = [];
+            for (let data of searchApi?.data) if (textFix(data.il) == search[0] && textFix(data.ilce) == search[1]) datas.push(data);
+            if (datas.length == 0) return searchApi?.data[0];
+            if (datas.length > 0) output = datas[0];
+        } else {
+            output = searchApi?.data[0];
+        }
 
-    if (!output) return null;
+        if (!output) return null;
 
-    const dataUrl = 'https://meteoroloji.boun.edu.tr/sorgular/veri_talep.php';
-    const object = { sehir: JSON.stringify({ ilce: searchApi?.data[0]?.ilce, il: searchApi?.data[0]?.il }) }
-    const headers = { headers: { 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryEH8ABrOo5YnHGWe2' } }
-    const dataApi = await axios.post(dataUrl, object, headers).catch((e) => null);
+        const dataUrl = 'https://meteoroloji.boun.edu.tr/sorgular/veri_talep.php';
+        const object = { sehir: JSON.stringify({ ilce: searchApi?.data[0]?.ilce, il: searchApi?.data[0]?.il }) }
+        const headers = { headers: { 'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryEH8ABrOo5YnHGWe2' } }
+        const dataApi = await axios.post(dataUrl, object, headers).catch((e) => null);
 
-    if (!dataApi?.data) {
-        console.log(Error('Some weather-turkey module api error! Please try again later.'))
-        return null;
-    }
+        if (!dataApi?.data) {
+            console.log(Error('Some weather-turkey module api error! Please try again later.'))
+            return null;
+        }
 
-    const NumberFix = (n, c) => String(n).includes('.') ? Number(String(n).split('.')[0] + '.' + String(n).split('.')[1].slice(0, c)) : Number(n);
-    const measurements = (datas) => datas.map(data => {
-        return {
-            timestamp: Number(new Date(data.tarih + ' ' + (String(data.saat).length == 1 ? '0' : '') + data.saat + ':00:00')),
-            date: data.tarih.split('-').reverse().join('.'),
-            time: (String(data.saat).length == 1 ? '0' : '') + data.saat + ':00:00',
-            temperature: {
-                value: NumberFix(data.sicaklik, 2),
-                max: NumberFix(data.max_sicaklik, 2),
-                min: NumberFix(data.min_sicaklik, 2),
-                felt: calcHumidex(data.sicaklik, data.nem),
-                unit: { long: 'Celcius', short: 'C' }
-            },
-            humidity: { value: NumberFix(data.nem), unit: { long: 'Percentile', short: '%' } },
-            pressure: {
-                value: NumberFix((data.basinc / 100).toLocaleString("tr-TR").replaceAll('.', '').replaceAll(',', '.'), 2),
-                unit: { long: 'Hektopaskal', short: 'hPa' }
-            },
-            rains: { value: NumberFix(data.yagis, 2), unit: { long: 'Millimeter', short: 'mm' } },
-            closeness: { value: NumberFix(data.kapalilik, 2), unit: { long: 'Percentile', short: '%' } },
-            wind: {
-                speed: NumberFix(data.ruzgar, 2),
-                direction: {
-                    degree: NumberFix(data.ruzgar_yon, 2),
-                    text: degToText(NumberFix(data.ruzgar_yon, 2))
+        const NumberFix = (n, c) => String(n).includes('.') ? Number(String(n).split('.')[0] + '.' + String(n).split('.')[1].slice(0, c)) : Number(n);
+        const measurements = (datas) => datas.map(data => {
+            return {
+                timestamp: Number(new Date(data?.tarih + ' ' + (String(data?.saat)?.length == 1 ? '0' : '') + data?.saat + ':00:00')),
+                date: data?.tarih?.split('-').reverse().join('.'),
+                time: (String(data?.saat)?.length == 1 ? '0' : '') + data?.saat + ':00:00',
+                temperature: {
+                    value: NumberFix(data?.sicaklik, 2),
+                    max: NumberFix(data?.max_sicaklik, 2),
+                    min: NumberFix(data?.min_sicaklik, 2),
+                    felt: calcHumidex(data?.sicaklik, data?.nem),
+                    unit: { long: 'Celcius', short: 'C' }
                 },
-                unit: { long: 'Kilometer per hour', short: 'km/h' }
-            },
-            status: {
-                text: data.durum,
-                icon: `https://meteoroloji.boun.edu.tr/files/img/durumlar/${data.dosya_adi}.png`
+                humidity: { value: NumberFix(data?.nem), unit: { long: 'Percentile', short: '%' } },
+                pressure: {
+                    value: NumberFix((data?.basinc / 100).toLocaleString("tr-TR").replaceAll('.', '').replaceAll(',', '.'), 2),
+                    unit: { long: 'Hektopaskal', short: 'hPa' }
+                },
+                rains: { value: NumberFix(data?.yagis, 2), unit: { long: 'Millimeter', short: 'mm' } },
+                closeness: { value: NumberFix(data?.kapalilik, 2), unit: { long: 'Percentile', short: '%' } },
+                wind: {
+                    speed: NumberFix(data?.ruzgar, 2),
+                    direction: {
+                        degree: NumberFix(data?.ruzgar_yon, 2),
+                        text: degToText(NumberFix(data?.ruzgar_yon, 2))
+                    },
+                    unit: { long: 'Kilometer per hour', short: 'km/h' }
+                },
+                status: {
+                    text: data?.durum,
+                    icon: `https://meteoroloji.boun.edu.tr/files/img/durumlar/${data?.dosya_adi}.png`
+                }
+            }
+        });
+
+        const bc = measurements(dataApi?.data).filter(f => f.timestamp < Number(new Date())).reverse()[0];
+        const fc = measurements(dataApi?.data).filter(f => f.timestamp > Number(new Date()))[0];
+
+        var currentControl = null;
+
+        if (bc && fc && Object.keys(bc).length > 0 && Object.keys(fc).length > 0) {
+            currentControl = {
+                timestamp: Number(new Date()) + 3 * 60 * 60 * 1000,
+                date: new Date().toLocaleDateString('tr-TR'),
+                time: new Date().toLocaleTimeString('tr-TR'),
+                temperature: {
+                    value: NumberFix((bc?.temperature?.value + fc?.temperature?.value) / 2, 2),
+                    max: NumberFix((bc?.temperature?.max + fc?.temperature?.max) / 2, 2),
+                    min: NumberFix((bc?.temperature?.min + fc?.temperature?.min) / 2, 2),
+                    felt: calcHumidex(NumberFix((bc?.temperature?.value + fc?.temperature?.value) / 2, 2), NumberFix((bc?.humidity?.value + fc?.humidity?.value) / 2), 2),
+                    unit: { long: 'Celcius', short: 'C' }
+                },
+                humidity: { value: NumberFix((bc?.humidity?.value + fc?.humidity?.value) / 2, 2), unit: { long: 'Percentile', short: '%' } },
+                pressure: {
+                    value: NumberFix((bc?.pressure?.value + fc?.pressure?.value) / 2, 2),
+                    unit: { long: 'Hektopaskal', short: 'hPa' }
+                },
+                rains: { value: NumberFix((bc?.rains?.value + fc?.rains?.value) / 2, 2), unit: { long: 'Millimeter', short: 'mm' } },
+                closeness: { value: NumberFix((bc?.closeness?.value + fc?.closeness?.value) / 2, 2), unit: { long: 'Percentile', short: '%' } },
+                wind: {
+                    speed: NumberFix((bc?.wind?.speed + fc.wind.speed) / 2, 2),
+                    direction: {
+                        degree: NumberFix((bc?.wind?.direction?.degree + fc?.wind?.direction?.degree) / 2, 2),
+                        text: degToText(NumberFix((bc?.wind?.direction?.degree + fc?.wind?.direction?.degree) / 2), 2)
+                    },
+                    unit: { long: 'Kilometer per hour', short: 'km/h' }
+                },
+                status: {
+                    text: fc?.status?.text,
+                    icon: fc?.status?.icon
+                }
             }
         }
-    });
 
-    const bc = measurements(dataApi?.data).filter(f => f.timestamp < Number(new Date())).reverse()[0];
-    const fc = measurements(dataApi?.data).filter(f => f.timestamp > Number(new Date()))[0];
+        let _measurements = [currentControl, ...measurements(dataApi.data).filter(f => f !== null).filter(f => f.timestamp > Number(new Date()))]
+        if (!isNaN(Number(data?.count))) _measurements = _measurements.slice(0, Number(data.count))
 
-    const currentControl = {
-        timestamp: Number(new Date()) + 3 * 60 * 60 * 1000,
-        date: new Date().toLocaleDateString('tr-TR'),
-        time: new Date().toLocaleTimeString('tr-TR'),
-        temperature: {
-            value: NumberFix((bc.temperature.value + fc.temperature.value) / 2, 2),
-            max: NumberFix((bc.temperature.max + fc.temperature.max) / 2, 2),
-            min: NumberFix((bc.temperature.min + fc.temperature.min) / 2, 2),
-            felt: calcHumidex(NumberFix((bc.temperature.value + fc.temperature.value) / 2, 2), NumberFix((bc.humidity.value + fc.humidity.value) / 2), 2),
-            unit: { long: 'Celcius', short: 'C' }
-        },
-        humidity: { value: NumberFix((bc.humidity.value + fc.humidity.value) / 2, 2), unit: { long: 'Percentile', short: '%' } },
-        pressure: {
-            value: NumberFix((bc.pressure.value + fc.pressure.value) / 2, 2),
-            unit: { long: 'Hektopaskal', short: 'hPa' }
-        },
-        rains: { value: NumberFix((bc.rains.value + fc.rains.value) / 2, 2), unit: { long: 'Millimeter', short: 'mm' } },
-        closeness: { value: NumberFix((bc.closeness.value + fc.closeness.value) / 2, 2), unit: { long: 'Percentile', short: '%' } },
-        wind: {
-            speed: NumberFix((bc.wind.speed + fc.wind.speed) / 2, 2),
-            direction: {
-                degree: NumberFix((bc.wind.direction.degree + fc.wind.direction.degree) / 2, 2),
-                text: degToText(NumberFix((bc.wind.direction.degree + fc.wind.direction.degree) / 2), 2)
-            },
-            unit: { long: 'Kilometer per hour', short: 'km/h' }
-        },
-        status: {
-            text: fc.status.text,
-            icon: fc.status.icon
+        let _daily = {};
+        _measurements.forEach(e => {
+            if (!_daily[e.date]) _daily[e.date] = [];
+            _daily[e.date].push(e)
+        });
+
+        let daily = [];
+        for (let key of Object.keys(_daily)) {
+            let { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status } = _daily[key][0];
+            let data = { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status, measurements: _daily[key] };
+
+            data.temperature.value = NumberFix(_daily[key]?.reduce((a, b) => a + b?.temperature?.value, 0) / _daily[key]?.length, 2);
+            data.temperature.max = NumberFix(_daily[key]?.reduce((a, b) => a + b?.temperature?.max, 0) / _daily[key]?.length, 2);
+            data.temperature.min = NumberFix(_daily[key]?.reduce((a, b) => a + b?.temperature?.min, 0) / _daily[key]?.length, 2);
+            data.humidity.value = NumberFix(_daily[key]?.reduce((a, b) => a + b?.humidity?.value, 0) / _daily[key]?.length, 2);
+            data.pressure.value = NumberFix(_daily[key]?.reduce((a, b) => a + b?.pressure?.value, 0) / _daily[key]?.length, 2);
+            data.rains.value = NumberFix(_daily[key]?.reduce((a, b) => a + b?.rains?.value, 0) / _daily[key]?.length, 2);
+            data.closeness.value = NumberFix(_daily[key]?.reduce((a, b) => a + b?.closeness?.value, 0) / _daily[key]?.length, 2);
+            data.wind.speed = NumberFix(_daily[key]?.reduce((a, b) => a + b?.wind?.speed, 0) / _daily[key]?.length, 2);
+            data.wind.direction.degree = NumberFix(_daily[key]?.reduce((a, b) => a + b?.wind?.direction?.degree, 0) / _daily[key]?.length, 2);
+            data.temperature.felt = calcHumidex(data?.temperature?.value, data?.humidity?.value);
+            data.wind.direction.text = degToText(data?.wind?.direction?.degree);
+
+            const index = _daily[key]?.length / 2 > 1 ? Math.floor(_daily[key]?.length / 2) - 1 : 0;
+
+            data.status.text = _daily[key][index]?.status?.text;
+            data.status.icon = _daily[key][index]?.status?.icon;
+
+            daily.push(data);
         }
-    }
 
-    let _measurements = [currentControl, ...measurements(dataApi.data).filter(f => f.timestamp > Number(new Date()))]
-    if (!isNaN(Number(data?.count))) _measurements = _measurements.slice(0, Number(data.count))
+        if (!isNaN(Number(data?.days))) daily = daily?.slice(0, Number(data?.days))
+        else if (isNaN(Number(data?.days))) daily = daily?.slice(0, 1)
 
-    let _daily = {};
-    _measurements.forEach(e => {
-        if (!_daily[e.date]) _daily[e.date] = [];
-        _daily[e.date].push(e)
-    });
-
-    let daily = [];
-    for (let key of Object.keys(_daily)) {
-        let { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status } = _daily[key][0];
-        let data = { timestamp, date, temperature, humidity, pressure, rains, closeness, wind, status, measurements: _daily[key] };
-
-        data.temperature.value = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.value, 0) / _daily[key].length, 2);
-        data.temperature.max = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.max, 0) / _daily[key].length, 2);
-        data.temperature.min = NumberFix(_daily[key].reduce((a, b) => a + b.temperature.min, 0) / _daily[key].length, 2);
-        data.humidity.value = NumberFix(_daily[key].reduce((a, b) => a + b.humidity.value, 0) / _daily[key].length, 2);
-        data.pressure.value = NumberFix(_daily[key].reduce((a, b) => a + b.pressure.value, 0) / _daily[key].length, 2);
-        data.rains.value = NumberFix(_daily[key].reduce((a, b) => a + b.rains.value, 0) / _daily[key].length, 2);
-        data.closeness.value = NumberFix(_daily[key].reduce((a, b) => a + b.closeness.value, 0) / _daily[key].length, 2);
-        data.wind.speed = NumberFix(_daily[key].reduce((a, b) => a + b.wind.speed, 0) / _daily[key].length, 2);
-        data.wind.direction.degree = NumberFix(_daily[key].reduce((a, b) => a + b.wind.direction.degree, 0) / _daily[key].length, 2);
-        data.temperature.felt = calcHumidex(data.temperature.value, data.humidity.value);
-        data.wind.direction.text = degToText(data.wind.direction.degree);
-
-        const index = _daily[key].length / 2 > 1 ? Math.floor(_daily[key].length / 2) - 1 : 0;
-
-        data.status.text = _daily[key][index]?.status?.text;
-        data.status.icon = _daily[key][index]?.status?.icon;
-
-        daily.push(data);
-    }
-
-    if (!isNaN(Number(data?.days))) daily = daily.slice(0, Number(data.days))
-    else if (isNaN(Number(data?.days))) daily = daily.slice(0, 1)
-
-    return {
-        city: textFix(output.il),
-        county: output.ilce ? textFix(output?.ilce) : null,
-        daily
+        return {
+            city: textFix(output?.il),
+            county: output?.ilce ? textFix(output?.ilce) : null,
+            daily
+        }
+    } catch (e) {
+        return null
     }
 };
 
